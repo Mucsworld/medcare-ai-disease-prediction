@@ -1,0 +1,8 @@
+__pycache__/
+.venv/
+*.pyc
+*.zip
+*.joblib
+model_metrics.txt
+.streamlit/secrets.toml
+medcare-ai-disease-prediction/

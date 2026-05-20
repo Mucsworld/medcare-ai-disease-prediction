@@ -4,41 +4,49 @@ GlycoAID is a supervised machine learning capstone project that predicts diabete
 
 ## Dataset
 
-The training script loads the dataset directly from the mandatory GitHub URL:
+The dataset is loaded directly from the mandatory GitHub URL:
 
+```text
 https://raw.githubusercontent.com/plotly/datasets/master/diabetes.csv
+```
 
 No local dataset file is required.
 
-## Project Files
+## Files
 
-- `train_model.py` - fetches the dataset, cleans invalid values, performs EDA, trains Logistic Regression and Decision Tree models, compares metrics, and saves `model.pkl`.
+- `train_model.py` - loads the dataset from GitHub, handles invalid zero values, performs EDA, trains Logistic Regression and Decision Tree models, compares performance, and saves `model.pkl`.
 - `app.py` - Streamlit web application for real-time diabetes risk prediction.
-- `requirements.txt` - packages needed for training and deployment.
-- `model.pkl` - generated after running `train_model.py`.
-- `outputs/` - generated EDA summaries, model comparison table, metadata, and charts.
+- `requirements.txt` - Python packages needed for training and deployment.
+- `runtime.txt` - Python runtime for Streamlit Cloud.
+- `.streamlit/config.toml` - Streamlit theme settings.
+- `GITHUB_DEPLOYMENT.md` - deployment steps.
+- `RUN_WINDOWS.md` - Windows/VS Code run commands.
 
-## How To Run
+## How To Run On Windows
 
-Install dependencies:
+Open PowerShell in the project folder:
 
-```bash
-pip install -r requirements.txt
+```powershell
+cd "C:\Users\dell\Documents\Codex\2026-05-20\please-read-this-fetch-the-data"
+```
+
+Install dependencies using your Python 3.13 interpreter:
+
+```powershell
+& "C:\Users\dell\AppData\Local\Programs\Python\Python313\python.exe" -m pip install -r requirements.txt
 ```
 
 Train the model:
 
-```bash
-python train_model.py
+```powershell
+& "C:\Users\dell\AppData\Local\Programs\Python\Python313\python.exe" train_model.py
 ```
 
 Run the Streamlit app:
 
-```bash
-streamlit run app.py
+```powershell
+& "C:\Users\dell\AppData\Local\Programs\Python\Python313\python.exe" -m streamlit run app.py
 ```
-
-If `model.pkl` is missing, the Streamlit app will attempt to train the model automatically from the same mandatory GitHub dataset URL.
 
 ## Workflow Covered
 
@@ -49,36 +57,22 @@ If `model.pkl` is missing, the Streamlit app will attempt to train the model aut
 - Trains Logistic Regression and Decision Tree Classifier.
 - Compares models using accuracy, precision, recall, F1 score, and ROC AUC.
 - Saves the best model with Joblib as `model.pkl`.
-- Provides a Streamlit UI with 8 patient inputs, real-time prediction, risk probability, model comparison, feature importance, and a brief prediction explanation.
-
-## GitHub URL
-
-GitHub repository:
-
-https://github.com/Mucsworld/medcare-ai-disease-prediction
-
-Prepared deployment branch:
-
-```text
-codex/glycoaid-diabetes
-```
+- Provides a Streamlit UI with 8 patient inputs, real-time prediction, probability score, model comparison, feature importance, and explanation.
 
 ## Streamlit Cloud Deployment
 
-1. Go to https://share.streamlit.io/.
-2. Select **New app**.
-3. Choose repository: `Mucsworld/medcare-ai-disease-prediction`.
-4. Choose branch: `codex/glycoaid-diabetes`.
-5. Set main file path: `app.py`.
-6. Select **Deploy**.
-7. Copy the live app URL for submission.
+Use these settings:
 
-The app trains `model.pkl` automatically on first launch if the file is missing. This keeps the deployment compatible with the project rule that the dataset must be loaded directly from the GitHub URL.
+- Repository: `Mucsworld/medcare-ai-disease-prediction`
+- Branch: `codex/glycoaid-diabetes`
+- Main file path: `app.py`
+
+The app automatically trains `model.pkl` on first launch if the model file is missing.
 
 ## Submission Checklist
 
 - `train_model.py`
 - `app.py`
-- `model.pkl`
-- Screenshots of the app in the `screenshots/` folder
+- `model.pkl` after training
+- Screenshots of the app
 - Live Streamlit Cloud link

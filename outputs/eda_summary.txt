@@ -1,0 +1,28 @@
+GlycoAID EDA Summary
+====================
+Dataset source: https://raw.githubusercontent.com/plotly/datasets/master/diabetes.csv
+Rows: 768
+Columns: 9
+
+Target distribution:
+Outcome
+0    500
+1    268
+
+Invalid zero counts handled with median imputation:
+Insulin          374
+SkinThickness    227
+BloodPressure     35
+BMI               11
+Glucose            5
+
+Descriptive statistics after cleaning invalid zeros:
+       Pregnancies  Glucose  BloodPressure  SkinThickness  Insulin      BMI  DiabetesPedigreeFunction      Age
+count      768.000  763.000        733.000        541.000  394.000  757.000                   768.000  768.000
+mean         3.845  121.687         72.405         29.153  155.548   32.457                     0.472   33.241
+std          3.370   30.536         12.382         10.477  118.776    6.925                     0.331   11.760
+min          0.000   44.000         24.000          7.000   14.000   18.200                     0.078   21.000
+25%          1.000   99.000         64.000         22.000   76.250   27.500                     0.244   24.000
+50%          3.000  117.000         72.000         29.000  125.000   32.300                     0.372   29.000
+75%          6.000  141.000         80.000         36.000  190.000   36.600                     0.626   41.000
+max         17.000  199.000        122.000         99.000  846.000   67.100                     2.420   81.000

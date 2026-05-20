@@ -1,98 +1,78 @@
-# MedCare - AI Disease Prediction System
+# GlycoAID - Diabetes Risk Prediction System
 
-MedCare is a supervised machine learning project prepared for Queens Hospital Akure. The aim is to support early patient screening by predicting a possible illness from basic symptoms such as fever, cough, headache, and body pain.
+GlycoAID is a supervised machine learning capstone project that predicts diabetes risk from routine diagnostic health measurements.
 
-This project is written as a simple, explainable classroom prototype. It is not meant to replace doctors or nurses. It is only a support tool that can help staff decide which patients may need attention quickly.
+## Dataset
 
-## Example Dataset Format
-
-The dataset follows the same simple table style used in class:
-
-| Age | Gender | Fever | Cough | Headache | Body Pain | Disease |
-| --- | --- | --- | --- | --- | --- | --- |
-| 25 | Male | Yes | No | Yes | Yes | Malaria |
-| 14 | Female | Yes | Yes | No | No | Flu |
-| 40 | Male | No | Yes | No | No | Cold |
-| 32 | Female | Yes | Yes | Yes | Yes | Typhoid |
-
-In the CSV file, `Body Pain` is written as `Body_Pain` because spaces in column names can make Python code harder to work with.
-
-## Project Files
-
-- `disease_dataset.csv` - synthetic healthcare dataset with at least 5,000 records
-- `train_model.py` - generates the dataset, preprocesses data, trains the model, evaluates accuracy, and saves artifacts
-- `app.py` - Streamlit web application for disease prediction
-- `disease_prediction_model.joblib` - trained Decision Tree model
-- `label_encoders.joblib` - saved label encoders for categorical columns
-- `model_bundle.joblib` - combined model, encoders, feature names, and accuracy
-- `model_metrics.txt` - model accuracy and classification report
-- `requirements.txt` - required Python packages
-
-## How to Run
-
-Install the required packages:
-
-```bash
-pip install -r requirements.txt
-```
-
-Command note: this installs Pandas, Scikit-learn, Joblib, and Streamlit.
-
-Start the Streamlit application:
-
-```bash
-streamlit run app.py
-```
-
-Command note: this opens the web application in the browser. If the dataset or model files are missing, the app will create them automatically.
-
-Optional: train the model from the terminal:
-
-```bash
-python train_model.py
-```
-
-Command note: this creates `disease_dataset.csv`, trains the Decision Tree model, checks accuracy, and saves the model files without opening the Streamlit app.
-
-## GitHub and Streamlit Deployment
-
-To create a GitHub URL, upload the project files to a public GitHub repository named:
+The dataset is loaded directly from the mandatory GitHub URL:
 
 ```text
-medcare-ai-disease-prediction
+https://raw.githubusercontent.com/plotly/datasets/master/diabetes.csv
 ```
 
-The GitHub URL will look like:
+No local dataset file is required.
 
-```text
-https://github.com/YOUR-USERNAME/medcare-ai-disease-prediction
+## Files
+
+- `train_model.py` - loads the dataset from GitHub, handles invalid zero values, performs EDA, trains Logistic Regression and Decision Tree models, compares performance, and saves `model.pkl`.
+- `app.py` - Streamlit web application for real-time diabetes risk prediction.
+- `requirements.txt` - Python packages needed for training and deployment.
+- `runtime.txt` - Python runtime for Streamlit Cloud.
+- `.streamlit/config.toml` - Streamlit theme settings.
+- `GITHUB_DEPLOYMENT.md` - deployment steps.
+- `RUN_WINDOWS.md` - Windows/VS Code run commands.
+
+## How To Run On Windows
+
+Open PowerShell in the project folder:
+
+```powershell
+cd "C:\Users\dell\Documents\Codex\2026-05-20\please-read-this-fetch-the-data"
 ```
 
-For Streamlit Cloud deployment:
+Install dependencies using your Python 3.13 interpreter:
 
-- Repository: `medcare-ai-disease-prediction`
+```powershell
+& "C:\Users\dell\AppData\Local\Programs\Python\Python313\python.exe" -m pip install -r requirements.txt
+```
+
+Train the model:
+
+```powershell
+& "C:\Users\dell\AppData\Local\Programs\Python\Python313\python.exe" train_model.py
+```
+
+Run the Streamlit app:
+
+```powershell
+& "C:\Users\dell\AppData\Local\Programs\Python\Python313\python.exe" -m streamlit run app.py
+```
+
+## Workflow Covered
+
+- Loads dataset directly from GitHub.
+- Handles invalid zero values in `Glucose`, `BloodPressure`, `SkinThickness`, `Insulin`, and `BMI`.
+- Performs exploratory data analysis.
+- Splits data into training and testing sets.
+- Trains Logistic Regression and Decision Tree Classifier.
+- Compares models using accuracy, precision, recall, F1 score, and ROC AUC.
+- Saves the best model with Joblib as `model.pkl`.
+- Provides a Streamlit UI with 8 patient inputs, real-time prediction, probability score, model comparison, feature importance, and explanation.
+
+## Streamlit Cloud Deployment
+
+Use these settings:
+
+- Repository: `Mucsworld/medcare-ai-disease-prediction`
+- Branch: `codex/glycoaid-diabetes`
 - Main file path: `app.py`
-- Requirements file: `requirements.txt`
 
-More detailed steps are available in `GITHUB_DEPLOYMENT.md`.
+The app automatically trains `model.pkl` on first launch if the model file is missing.
 
-## Example Prediction
+## Submission Checklist
 
-Patient information:
-
-- Age: 30
-- Gender: Male
-- Fever: Yes
-- Cough: No
-- Headache: Yes
-- Body Pain: Yes
-
-Expected model output:
-
-```text
-Predicted Disease: Malaria
-```
-
-## Notes
-
-This project is an educational decision-support prototype. Any prediction from the system should be confirmed by qualified medical staff before treatment is given.
+- `train_model.py`
+- `app.py`
+- `model.pkl` after training
+- Screenshots of the app
+- Live Streamlit Cloud link

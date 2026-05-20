@@ -1,143 +1,272 @@
-import random
+"""Train the GlycoAID diabetes risk prediction model.
+
+The dataset is loaded directly from the mandatory GitHub URL. The script
+cleans invalid zero values, performs EDA, trains Logistic Regression and
+Decision Tree models, compares them, and saves the best model with Joblib.
+"""
+
+from __future__ import annotations
+
+import json
 from pathlib import Path
 
 import joblib
+import matplotlib
+import numpy as np
 import pandas as pd
-from sklearn.metrics import accuracy_score, classification_report
+import seaborn as sns
+from sklearn.compose import ColumnTransformer
+from sklearn.impute import SimpleImputer
+from sklearn.linear_model import LogisticRegression
+from sklearn.metrics import (
+    accuracy_score,
+    classification_report,
+    confusion_matrix,
+    f1_score,
+    precision_score,
+    recall_score,
+    roc_auc_score,
+)
 from sklearn.model_selection import train_test_split
-from sklearn.preprocessing import LabelEncoder
+from sklearn.pipeline import Pipeline
+from sklearn.preprocessing import StandardScaler
 from sklearn.tree import DecisionTreeClassifier
 
+matplotlib.use("Agg")
+import matplotlib.pyplot as plt  # noqa: E402
 
-RANDOM_SEED = 42
-DATASET_PATH = Path("disease_dataset.csv")
-MODEL_PATH = Path("disease_prediction_model.joblib")
-ENCODERS_PATH = Path("label_encoders.joblib")
-BUNDLE_PATH = Path("model_bundle.joblib")
-METRICS_PATH = Path("model_metrics.txt")
 
-FEATURE_COLUMNS = ["Age", "Gender", "Fever", "Cough", "Headache", "Body_Pain"]
-TARGET_COLUMN = "Disease"
-DISEASE_CLASSES = ["Malaria", "Flu", "Typhoid", "Cold"]
-
-SYMPTOM_PROFILES = {
-    "Malaria": {"Fever": 0.92, "Cough": 0.20, "Headache": 0.78, "Body_Pain": 0.86},
-    "Flu": {"Fever": 0.74, "Cough": 0.82, "Headache": 0.56, "Body_Pain": 0.68},
-    "Typhoid": {"Fever": 0.88, "Cough": 0.18, "Headache": 0.70, "Body_Pain": 0.52},
-    "Cold": {"Fever": 0.22, "Cough": 0.86, "Headache": 0.30, "Body_Pain": 0.20},
-}
-
-CLASS_SAMPLE_ROWS = [
-    [25, "Male", "Yes", "No", "Yes", "Yes", "Malaria"],
-    [14, "Female", "Yes", "Yes", "No", "No", "Flu"],
-    [40, "Male", "No", "Yes", "No", "No", "Cold"],
-    [32, "Female", "Yes", "Yes", "Yes", "Yes", "Typhoid"],
+BASE_DIR = Path(__file__).resolve().parent
+DATA_URL = "https://raw.githubusercontent.com/plotly/datasets/master/diabetes.csv"
+TARGET = "Outcome"
+FEATURES = [
+    "Pregnancies",
+    "Glucose",
+    "BloodPressure",
+    "SkinThickness",
+    "Insulin",
+    "BMI",
+    "DiabetesPedigreeFunction",
+    "Age",
 ]
+ZERO_AS_MISSING = ["Glucose", "BloodPressure", "SkinThickness", "Insulin", "BMI"]
+MODEL_PATH = BASE_DIR / "model.pkl"
+OUTPUT_DIR = BASE_DIR / "outputs"
+FIGURE_DIR = OUTPUT_DIR / "figures"
 
 
-def yes_no(probability):
-    return "Yes" if random.random() < probability else "No"
+def load_dataset() -> pd.DataFrame:
+    """Load the diabetes dataset directly from the required GitHub URL."""
+    data = pd.read_csv(DATA_URL)
+    missing_columns = set(FEATURES + [TARGET]) - set(data.columns)
+    if missing_columns:
+        raise ValueError(f"Dataset is missing required columns: {missing_columns}")
+    return data
 
 
-def generate_dataset(records=6000):
-    random.seed(RANDOM_SEED)
-    rows = [
-        {
-            "Age": age,
-            "Gender": gender,
-            "Fever": fever,
-            "Cough": cough,
-            "Headache": headache,
-            "Body_Pain": body_pain,
-            "Disease": disease,
-        }
-        for age, gender, fever, cough, headache, body_pain, disease in CLASS_SAMPLE_ROWS
+def clean_invalid_values(data: pd.DataFrame) -> pd.DataFrame:
+    """Replace medically invalid zero values with NaN for median imputation."""
+    cleaned = data.copy()
+    cleaned[ZERO_AS_MISSING] = cleaned[ZERO_AS_MISSING].replace(0, np.nan)
+    return cleaned
+
+
+def save_eda(raw_data: pd.DataFrame, cleaned_data: pd.DataFrame) -> None:
+    """Save EDA summary and charts for the assignment evidence."""
+    OUTPUT_DIR.mkdir(exist_ok=True)
+    FIGURE_DIR.mkdir(parents=True, exist_ok=True)
+
+    target_counts = raw_data[TARGET].value_counts().sort_index()
+    invalid_zero_counts = (raw_data[ZERO_AS_MISSING] == 0).sum().sort_values(ascending=False)
+
+    summary = [
+        "GlycoAID EDA Summary",
+        "====================",
+        f"Dataset source: {DATA_URL}",
+        f"Rows: {raw_data.shape[0]}",
+        f"Columns: {raw_data.shape[1]}",
+        "",
+        "Target distribution:",
+        target_counts.to_string(),
+        "",
+        "Invalid zero counts handled with median imputation:",
+        invalid_zero_counts.to_string(),
+        "",
+        "Descriptive statistics after cleaning invalid zeros:",
+        cleaned_data[FEATURES].describe().round(3).to_string(),
     ]
+    (OUTPUT_DIR / "eda_summary.txt").write_text("\n".join(summary), encoding="utf-8")
 
-    for _ in range(records - len(rows)):
-        # Choose the disease first, then create symptoms that are likely for it.
-        disease = random.choice(DISEASE_CLASSES)
-        profile = SYMPTOM_PROFILES[disease]
+    plt.figure(figsize=(6, 4))
+    sns.countplot(
+        data=raw_data,
+        x=TARGET,
+        hue=TARGET,
+        palette=["#2e7d6b", "#c7504a"],
+        legend=False,
+    )
+    plt.title("Diabetes Outcome Distribution")
+    plt.xlabel("Outcome (0 = Low Risk, 1 = High Risk)")
+    plt.ylabel("Patient Count")
+    plt.tight_layout()
+    plt.savefig(FIGURE_DIR / "outcome_distribution.png", dpi=160)
+    plt.close()
 
-        rows.append(
-            {
-                "Age": random.randint(1, 90),
-                "Gender": random.choice(["Male", "Female"]),
-                "Fever": yes_no(profile["Fever"]),
-                "Cough": yes_no(profile["Cough"]),
-                "Headache": yes_no(profile["Headache"]),
-                "Body_Pain": yes_no(profile["Body_Pain"]),
-                "Disease": disease,
-            }
+    plt.figure(figsize=(9, 7))
+    correlation = cleaned_data[FEATURES + [TARGET]].corr(numeric_only=True)
+    sns.heatmap(correlation, annot=True, fmt=".2f", cmap="BrBG", center=0, linewidths=0.5)
+    plt.title("Feature Correlation Heatmap")
+    plt.tight_layout()
+    plt.savefig(FIGURE_DIR / "correlation_heatmap.png", dpi=160)
+    plt.close()
+
+    cleaned_data[FEATURES].hist(figsize=(11, 8), bins=24, color="#4d8f8b", edgecolor="white")
+    plt.suptitle("Feature Distributions After Invalid Zero Cleaning")
+    plt.tight_layout()
+    plt.savefig(FIGURE_DIR / "feature_distributions.png", dpi=160)
+    plt.close()
+
+
+def build_pipeline(model_name: str) -> Pipeline:
+    """Create a preprocessing and classification pipeline."""
+    if model_name == "Logistic Regression":
+        classifier = LogisticRegression(max_iter=1000, class_weight="balanced", random_state=42)
+    elif model_name == "Decision Tree":
+        classifier = DecisionTreeClassifier(
+            max_depth=4,
+            min_samples_leaf=12,
+            class_weight="balanced",
+            random_state=42,
         )
+    else:
+        raise ValueError(f"Unsupported model: {model_name}")
 
-    return pd.DataFrame(rows)
+    numeric_steps = Pipeline(
+        steps=[
+            ("imputer", SimpleImputer(strategy="median")),
+            ("scaler", StandardScaler()),
+        ]
+    )
+    preprocessor = ColumnTransformer(
+        transformers=[("numeric", numeric_steps, FEATURES)],
+        remainder="drop",
+    )
+
+    return Pipeline(
+        steps=[
+            ("preprocessor", preprocessor),
+            ("model", classifier),
+        ]
+    )
 
 
-def encode_columns(data):
-    encoded_data = data.copy()
-    encoders = {}
+def evaluate_model(name: str, pipeline: Pipeline, x_test: pd.DataFrame, y_test: pd.Series) -> dict:
+    """Evaluate a binary classifier."""
+    predictions = pipeline.predict(x_test)
+    probabilities = pipeline.predict_proba(x_test)[:, 1]
 
-    # Label Encoding changes text values like Yes/No into numbers for the model.
-    for column in ["Gender", "Fever", "Cough", "Headache", "Body_Pain", "Disease"]:
-        encoder = LabelEncoder()
-        encoded_data[column] = encoder.fit_transform(encoded_data[column])
-        encoders[column] = encoder
+    return {
+        "model": name,
+        "accuracy": accuracy_score(y_test, predictions),
+        "precision": precision_score(y_test, predictions, zero_division=0),
+        "recall": recall_score(y_test, predictions, zero_division=0),
+        "f1_score": f1_score(y_test, predictions, zero_division=0),
+        "roc_auc": roc_auc_score(y_test, probabilities),
+    }
 
-    return encoded_data, encoders
+
+def get_feature_importance(best_pipeline: Pipeline) -> pd.DataFrame:
+    """Extract feature importance or absolute coefficient values."""
+    estimator = best_pipeline.named_steps["model"]
+
+    if hasattr(estimator, "feature_importances_"):
+        values = estimator.feature_importances_
+    elif hasattr(estimator, "coef_"):
+        values = np.abs(estimator.coef_[0])
+    else:
+        values = np.zeros(len(FEATURES))
+
+    importance = pd.DataFrame({"feature": FEATURES, "importance": values})
+    return importance.sort_values("importance", ascending=False).reset_index(drop=True)
 
 
-def train_model(records=6000):
-    dataset = generate_dataset(records=records)
-    dataset.to_csv(DATASET_PATH, index=False)
+def save_feature_importance(importance: pd.DataFrame) -> None:
+    """Save feature importance table and chart."""
+    importance.to_csv(OUTPUT_DIR / "feature_importance.csv", index=False)
 
-    encoded_dataset, encoders = encode_columns(dataset)
-    x = encoded_dataset[FEATURE_COLUMNS]
-    y = encoded_dataset[TARGET_COLUMN]
+    plt.figure(figsize=(8, 5))
+    sns.barplot(data=importance, x="importance", y="feature", color="#2e7d6b")
+    plt.title("Best Model Feature Importance")
+    plt.xlabel("Relative Importance")
+    plt.ylabel("")
+    plt.tight_layout()
+    plt.savefig(FIGURE_DIR / "feature_importance.png", dpi=160)
+    plt.close()
 
-    # 80% of the data is used for training and 20% is used for testing.
+
+def main() -> None:
+    OUTPUT_DIR.mkdir(exist_ok=True)
+    FIGURE_DIR.mkdir(parents=True, exist_ok=True)
+
+    raw_data = load_dataset()
+    cleaned_data = clean_invalid_values(raw_data)
+    save_eda(raw_data, cleaned_data)
+
+    x = cleaned_data[FEATURES]
+    y = cleaned_data[TARGET]
     x_train, x_test, y_train, y_test = train_test_split(
         x,
         y,
         test_size=0.2,
-        random_state=RANDOM_SEED,
         stratify=y,
+        random_state=42,
     )
 
-    model = DecisionTreeClassifier(max_depth=5, random_state=RANDOM_SEED)
-    model.fit(x_train, y_train)
+    trained_models: dict[str, Pipeline] = {}
+    results = []
 
-    predictions = model.predict(x_test)
-    accuracy = accuracy_score(y_test, predictions)
-    report = classification_report(
-        y_test,
-        predictions,
-        target_names=encoders[TARGET_COLUMN].classes_,
+    for model_name in ["Logistic Regression", "Decision Tree"]:
+        pipeline = build_pipeline(model_name)
+        pipeline.fit(x_train, y_train)
+        trained_models[model_name] = pipeline
+        results.append(evaluate_model(model_name, pipeline, x_test, y_test))
+
+    comparison = pd.DataFrame(results).sort_values(
+        by=["roc_auc", "f1_score", "recall"],
+        ascending=False,
     )
+    comparison.to_csv(OUTPUT_DIR / "model_comparison.csv", index=False)
 
-    bundle = {
-        "model": model,
-        "encoders": encoders,
-        "feature_columns": FEATURE_COLUMNS,
-        "target_column": TARGET_COLUMN,
-        "accuracy": accuracy,
+    best_name = str(comparison.iloc[0]["model"])
+    best_pipeline = trained_models[best_name]
+    joblib.dump(best_pipeline, MODEL_PATH)
+
+    predictions = best_pipeline.predict(x_test)
+    report = classification_report(y_test, predictions, target_names=["Low Risk", "High Risk"])
+    matrix = confusion_matrix(y_test, predictions)
+
+    importance = get_feature_importance(best_pipeline)
+    save_feature_importance(importance)
+
+    metadata = {
+        "project": "GlycoAID - Diabetes Risk Prediction System",
+        "dataset_url": DATA_URL,
+        "features": FEATURES,
+        "zero_as_missing": ZERO_AS_MISSING,
+        "selected_model": best_name,
+        "model_path": str(MODEL_PATH),
+        "model_comparison": comparison.round(4).to_dict(orient="records"),
+        "classification_report": report,
+        "confusion_matrix": matrix.tolist(),
+        "top_features": importance.head(5).round(4).to_dict(orient="records"),
     }
+    (OUTPUT_DIR / "model_metadata.json").write_text(json.dumps(metadata, indent=2), encoding="utf-8")
 
-    joblib.dump(model, MODEL_PATH)
-    joblib.dump(encoders, ENCODERS_PATH)
-    joblib.dump(bundle, BUNDLE_PATH)
-
-    METRICS_PATH.write_text(
-        f"Decision Tree Classifier Accuracy: {accuracy:.4f}\n\n{report}",
-        encoding="utf-8",
-    )
-
-    print(f"Dataset saved to: {DATASET_PATH}")
-    print(f"Model saved to: {MODEL_PATH}")
-    print(f"Encoders saved to: {ENCODERS_PATH}")
-    print(f"Model bundle saved to: {BUNDLE_PATH}")
-    print(f"Accuracy: {accuracy:.4f}")
+    print("Training complete.")
+    print(f"Selected model: {best_name}")
+    print(comparison.round(4).to_string(index=False))
+    print(f"Saved model to: {MODEL_PATH}")
 
 
 if __name__ == "__main__":
-    train_model()
+    main()

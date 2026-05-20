@@ -12,10 +12,11 @@ import plotly.graph_objects as go
 import streamlit as st
 
 
-MODEL_PATH = Path("model.pkl")
-METADATA_PATH = Path("outputs/model_metadata.json")
-COMPARISON_PATH = Path("outputs/model_comparison.csv")
-IMPORTANCE_PATH = Path("outputs/feature_importance.csv")
+BASE_DIR = Path(__file__).resolve().parent
+MODEL_PATH = BASE_DIR / "model.pkl"
+METADATA_PATH = BASE_DIR / "outputs" / "model_metadata.json"
+COMPARISON_PATH = BASE_DIR / "outputs" / "model_comparison.csv"
+IMPORTANCE_PATH = BASE_DIR / "outputs" / "feature_importance.csv"
 
 FEATURES = [
     "Pregnancies",
@@ -106,6 +107,7 @@ def load_table(path: Path) -> pd.DataFrame:
 
 
 def ensure_model_file() -> None:
+    """Train the model automatically on first Streamlit Cloud launch."""
     if MODEL_PATH.exists():
         return
 
@@ -179,7 +181,7 @@ st.markdown(
 try:
     ensure_model_file()
 except Exception as exc:
-    st.error("model.pkl was not found and automatic training could not complete.")
+    st.error("Automatic model training failed. Install requirements, then run `python train_model.py`.")
     st.exception(exc)
     st.stop()
 
@@ -277,14 +279,14 @@ tabs = st.tabs(["Model Comparison", "Feature Importance", "Explanation"])
 with tabs[0]:
     st.subheader("Model Comparison")
     if comparison.empty:
-        st.warning("Run the training script to generate the model comparison table.")
+        st.warning("Train the model to generate the model comparison table.")
     else:
         st.dataframe(comparison.round(4), hide_index=True, use_container_width=True)
 
 with tabs[1]:
     st.subheader("Feature Importance")
     if importance.empty:
-        st.warning("Run the training script to generate feature importance values.")
+        st.warning("Train the model to generate feature importance values.")
     else:
         st.bar_chart(importance.set_index("feature")["importance"])
 
